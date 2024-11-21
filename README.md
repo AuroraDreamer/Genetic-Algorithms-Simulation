@@ -1,4 +1,4 @@
-# Phishing-Detection-Tool
+# Genetic-Algorithms-Simulation
 Background:
 Genetic Algorithms (GAs) are optimization techniques inspired by natural selection, useful
 for complex problems. They require significant computational power, especially with large
