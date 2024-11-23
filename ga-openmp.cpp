@@ -13,23 +13,25 @@
 #include <cstdlib>
 #include <ctime>
 #include <chrono>
+#include <omp.h>
 #include <thread>
+
 using namespace std;
 
 // Constants
-const long long MAX_POPULATION = 1000000000000LL; // Arbitrary upper limit for population size
+const long long MAX_POPULATION = 1000000000000LL;
 
 // Custom Line Chart Class
 class LineChart : public Fl_Widget {
     vector<pair<double, double>> data;
-    std::string xLabel, yLabel, title, key;
+    string xLabel, yLabel, title, key;
     double xMax = 1.0, yMax = 1.0;
 
 public:
     LineChart(int x, int y, int w, int h, const char *l = 0)
         : Fl_Widget(x, y, w, h, l), xLabel("X"), yLabel("Y"), title("Line Chart"), key("") {}
 
-    void setLabels(const std::string &x, const std::string &y, const std::string &t, const std::string &k) {
+    void setLabels(const string &x, const string &y, const string &t, const string &k) {
         xLabel = x;
         yLabel = y;
         title = t;
@@ -50,7 +52,7 @@ public:
 
         // Draw title
         fl_color(FL_BLACK);
-        fl_font(FL_HELVETICA_BOLD, 14); // Title font
+        fl_font(FL_HELVETICA_BOLD, 14);
         fl_draw(title.c_str(), x() + w() / 2 - 50, y() + 20);
 
         // Draw axes
@@ -58,22 +60,21 @@ public:
         fl_line(x() + 70, y() + h() - 70, x() + w() - 40, y() + h() - 70); // X-axis
         fl_line(x() + 70, y() + h() - 70, x() + 70, y() + 40);             // Y-axis
 
-        // Draw axis labels
-        fl_font(FL_HELVETICA, 12); // Axis label font
-        fl_draw(xLabel.c_str(), x() + w() / 2, y() + h() - 30);
-        fl_draw(yLabel.c_str(), x() + 20, y() + h() / 2);
+        fl_font(FL_HELVETICA, 12);
+        fl_draw(xLabel.c_str(), x() + w() / 2 - 20, y() + h() - 30);  // Align X axis label
+        fl_draw(yLabel.c_str(), x() + 20, y() + h() / 2);  // Align Y axis label
 
-        // Draw ticks and numbers
-        drawTicks();
+        drawTicks(); // Draw ticks and numbers
 
         // Draw legend/key
         fl_color(FL_BLACK);
         fl_rect(x() + w() - 140, y() + 10, 120, 50);
-        fl_font(FL_HELVETICA, 10); // Legend font
+        fl_font(FL_HELVETICA, 10);  // Legend font
         fl_draw(key.c_str(), x() + w() - 130, y() + 35);
 
-        // Plot data points
         if (data.empty()) return;
+
+        // Draw data points
         for (size_t i = 0; i < data.size() - 1; ++i) {
             double x1 = mapValue(data[i].first, 0, xMax, x() + 70, x() + w() - 40);
             double y1 = mapValue(data[i].second, 0, yMax, y() + h() - 70, y() + 40);
@@ -91,17 +92,15 @@ private:
     }
 
     void drawTicks() {
-        fl_font(FL_HELVETICA, 10); // Tick font
+        fl_font(FL_HELVETICA, 10);
         fl_color(FL_BLACK);
 
         for (int i = 0; i <= 5; ++i) {
-            // X-axis ticks
             double xTickVal = xMax * i / 5;
             double xTickPos = mapValue(xTickVal, 0, xMax, x() + 70, x() + w() - 40);
             fl_draw(to_string(xTickVal).c_str(), xTickPos - 10, y() + h() - 55);
             fl_line(xTickPos, y() + h() - 70, xTickPos, y() + h() - 65);
 
-            // Y-axis ticks
             double yTickVal = yMax * i / 5;
             double yTickPos = mapValue(yTickVal, 0, yMax, y() + h() - 70, y() + 40);
             fl_draw(to_string(yTickVal).c_str(), x() + 45, yTickPos + 5);
@@ -109,13 +108,6 @@ private:
         }
     }
 };
-
-// Function Prototypes
-void runSelectedAlgorithm(int algorithm, long long populationSize, double mutationRate, double crossoverRate);
-void runStandardGA(long long populationSize, double mutationRate, double crossoverRate);
-void runStationaryGA(long long populationSize, double mutationRate, double crossoverRate);
-void runEliteGA(long long populationSize, double mutationRate, double crossoverRate);
-void runIslandModelGA(long long populationSize, double mutationRate, double crossoverRate);
 
 // Global Variables
 atomic<bool> running(false);
@@ -125,114 +117,101 @@ Fl_Text_Display *outputDisplay;
 Fl_Text_Buffer *outputBuffer;
 LineChart *speedupChart, *efficiencyChart;
 
+// Function Prototypes
+void runSelectedAlgorithm(int algorithm, int threads, long long populationSize, double mutationRate, double crossoverRate);
+void runStandardGA(int threads, long long populationSize, double mutationRate, double crossoverRate);
+void runStationaryGA(int threads, long long populationSize, double mutationRate, double crossoverRate);
+void runEliteGA(int threads, long long populationSize, double mutationRate, double crossoverRate);
+void runIslandModelGA(int threads, long long populationSize, double mutationRate, double crossoverRate);
+
 // Simulation Function
 void simulateAlgorithm() {
     running = true;
 
-    // Parse inputs
     long long populationSize = atoll(inputPopulationSize->value());
     double mutationRate = atof(inputMutationRate->value());
     double crossoverRate = atof(inputCrossoverRate->value());
     int threads = atoi(inputThreads->value());
 
-    // Validate inputs
-    if (populationSize <= 0 || populationSize > MAX_POPULATION) {
-        outputBuffer->append("Invalid population size. Enter a value between 1 and 999999999999.\n");
-        running = false;
-        return;
-    }
-    if (mutationRate < 0.0 || mutationRate > 1.0) {
-        outputBuffer->append("Invalid mutation rate. Enter a value between 0 and 1.\n");
-        running = false;
-        return;
-    }
-    if (crossoverRate < 0.0 || crossoverRate > 1.0) {
-        outputBuffer->append("Invalid crossover rate. Enter a value between 0 and 1.\n");
-        running = false;
-        return;
-    }
-    if (threads <= 0) {
-        outputBuffer->append("Invalid thread count. Enter a positive integer.\n");
+    // Validate Inputs
+    if (populationSize <= 0 || populationSize > MAX_POPULATION || mutationRate < 0 || mutationRate > 1 || crossoverRate < 0 || crossoverRate > 1 || threads <= 0) {
+        outputBuffer->append("Invalid input. Check parameters.\n");
         running = false;
         return;
     }
 
     int selectedAlgorithm = algorithmChoice->value();
-    outputBuffer->append("Simulation started...\n");
-
-    double baselineTime = 0.0; // Baseline for single-thread execution
+    double baselineTime = 0.0;
 
     for (int currentThreads = 1; currentThreads <= threads && running; currentThreads *= 2) {
-        // In serial mode, we ignore the number of threads. Each run is sequential.
+        omp_set_num_threads(currentThreads);
+
         auto startTime = chrono::high_resolution_clock::now();
-
-        // Run selected algorithm
-        runSelectedAlgorithm(selectedAlgorithm, populationSize, mutationRate, crossoverRate);
-
+        runSelectedAlgorithm(selectedAlgorithm, currentThreads, populationSize, mutationRate, crossoverRate);
         auto endTime = chrono::high_resolution_clock::now();
+
         double elapsed = chrono::duration<double>(endTime - startTime).count();
-
-        if (currentThreads == 1) {
-            baselineTime = elapsed;
-        }
-
-        // Calculate speedup and efficiency
+        if (currentThreads == 1) baselineTime = elapsed;
         double speedup = baselineTime / elapsed;
         double efficiency = speedup / currentThreads;
 
-        // Update charts
         speedupChart->addDataPoint(currentThreads, speedup);
         efficiencyChart->addDataPoint(currentThreads, efficiency);
 
-        // Log results
         outputBuffer->append(("Threads: " + to_string(currentThreads) +
                               " Time: " + to_string(elapsed) + "s" +
                               " Speedup: " + to_string(speedup) +
                               " Efficiency: " + to_string(efficiency) + "\n").c_str());
     }
 
-    outputBuffer->append("Simulation complete.\n");
     running = false;
 }
 
-// Algorithm Implementations (Serial)
-void runSelectedAlgorithm(int algorithm, long long populationSize, double mutationRate, double crossoverRate) {
+// Implement Genetic Algorithms
+void runSelectedAlgorithm(int algorithm, int threads, long long populationSize, double mutationRate, double crossoverRate) {
     switch (algorithm) {
-        case 0:
-            runStandardGA(populationSize, mutationRate, crossoverRate);
-            break;
-        case 1:
-            runStationaryGA(populationSize, mutationRate, crossoverRate);
-            break;
-        case 2:
-            runEliteGA(populationSize, mutationRate, crossoverRate);
-            break;
-        case 3:
-            runIslandModelGA(populationSize, mutationRate, crossoverRate);
-            break;
-        default:
-            outputBuffer->append("Unknown algorithm selected.\n");
+        case 0: runStandardGA(threads, populationSize, mutationRate, crossoverRate); break;
+        case 1: runStationaryGA(threads, populationSize, mutationRate, crossoverRate); break;
+        case 2: runEliteGA(threads, populationSize, mutationRate, crossoverRate); break;
+        case 3: runIslandModelGA(threads, populationSize, mutationRate, crossoverRate); break;
+        default: outputBuffer->append("Unknown algorithm selected.\n");
     }
 }
 
-void runStandardGA(long long populationSize, double mutationRate, double crossoverRate) {
-    // Standard Genetic Algorithm logic (serial implementation)
-    // Placeholder for GA operations such as selection, crossover, and mutation.
+void runStandardGA(int threads, long long populationSize, double mutationRate, double crossoverRate) {
+    vector<double> fitness(populationSize);
+
+#pragma omp parallel for schedule(dynamic)
+    for (long long i = 0; i < populationSize; ++i) {
+        fitness[i] = rand() / double(RAND_MAX); // Placeholder for actual Standard GA logic
+    }
 }
 
-void runStationaryGA(long long populationSize, double mutationRate, double crossoverRate) {
-    // Stationary Genetic Algorithm logic (serial implementation)
-    // Placeholder for incremental population updates.
+void runStationaryGA(int threads, long long populationSize, double mutationRate, double crossoverRate) {
+    vector<double> fitness(populationSize);
+
+#pragma omp parallel for schedule(dynamic)
+    for (long long i = 0; i < populationSize; ++i) {
+        fitness[i] = rand() / double(RAND_MAX);  // Placeholder: Implement actual Stationary GA logic
+    }
 }
 
-void runEliteGA(long long populationSize, double mutationRate, double crossoverRate) {
-    // Elite Genetic Algorithm logic (serial implementation)
-    // Placeholder for elitism and retaining the best individuals.
+void runEliteGA(int threads, long long populationSize, double mutationRate, double crossoverRate) {
+    vector<double> fitness(populationSize);
+
+#pragma omp parallel for schedule(dynamic)
+    for (long long i = 0; i < populationSize; ++i) {
+        fitness[i] = rand() / double(RAND_MAX);  // Placeholder: Implement actual Elite GA logic
+    }
 }
 
-void runIslandModelGA(long long populationSize, double mutationRate, double crossoverRate) {
-    // Island Model Genetic Algorithm logic (serial implementation)
-    // Placeholder for multiple sub-populations and migration.
+void runIslandModelGA(int threads, long long populationSize, double mutationRate, double crossoverRate) {
+    vector<double> fitness(populationSize);
+
+#pragma omp parallel for schedule(dynamic)
+    for (long long i = 0; i < populationSize; ++i) {
+        fitness[i] = rand() / double(RAND_MAX);  // Placeholder: Implement actual Island Model GA logic
+    }
 }
 
 // Main Function
@@ -241,7 +220,6 @@ int main(int argc, char **argv) {
 
     Fl_Window *window = new Fl_Window(950, 700, "Genetic Algorithm Simulator");
 
-    // Inputs
     inputPopulationSize = new Fl_Input(150, 30, 150, 25, "Population Size:");
     inputPopulationSize->value("100");
 
@@ -252,7 +230,7 @@ int main(int argc, char **argv) {
     inputCrossoverRate->value("0.7");
 
     inputThreads = new Fl_Input(150, 150, 150, 25, "Number of Threads:");
-    inputThreads->value("1");
+    inputThreads->value("4");
 
     algorithmChoice = new Fl_Choice(150, 190, 150, 25, "Algorithm:");
     algorithmChoice->add("Standard GA|Stationary GA|Elite GA|Island Model GA");
@@ -270,7 +248,7 @@ int main(int argc, char **argv) {
     outputBuffer = new Fl_Text_Buffer();
     outputDisplay->buffer(outputBuffer);
 
-    // Line Charts
+    // Line Charts for Speedup and Efficiency
     speedupChart = new LineChart(500, 50, 400, 250);
     speedupChart->setLabels("Threads", "Speedup (x)", "Speedup vs. Threads", "Speedup");
 
