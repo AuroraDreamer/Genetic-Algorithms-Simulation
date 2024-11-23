@@ -1,0 +1,231 @@
+#include <mpi.h>
+#include <FL/Fl.H>
+#include <FL/Fl_Window.H>
+#include <FL/Fl_Input.H>
+#include <FL/Fl_Choice.H>
+#include <FL/Fl_Button.H>
+#include <FL/Fl_Text_Display.H>
+#include <FL/fl_draw.H>
+#include <string>
+#include <atomic>
+#include <vector>
+#include <utility>
+#include <cmath>
+#include <cstdlib>
+#include <ctime>
+#include <chrono>
+#include <thread>
+#include <iostream>
+#include <sstream>
+
+using namespace std;
+
+// Constants
+const long long MAX_POPULATION = 1000000000000LL;
+
+// Custom Line Chart Class
+class LineChart : public Fl_Widget {
+    vector<pair<double, double>> data;
+    string xLabel, yLabel, title, key;
+    double xMax = 1.0, yMax = 1.0;
+
+public:
+    LineChart(int x, int y, int w, int h, const char *l = 0)
+        : Fl_Widget(x, y, w, h, l), xLabel("X"), yLabel("Y"), title("Line Chart"), key("") {}
+
+    void setLabels(const string &x, const string &y, const string &t, const string &k) {
+        xLabel = x;
+        yLabel = y;
+        title = t;
+        key = k;
+    }
+
+    void addDataPoint(double x, double y) {
+        data.emplace_back(x, y);
+        xMax = max(xMax, x);
+        yMax = max(yMax, y);
+        if (data.size() > 20) data.erase(data.begin());
+        redraw();
+    }
+
+    void draw() override {
+        fl_color(FL_WHITE);
+        fl_rectf(x(), y(), w(), h());
+
+        fl_color(FL_BLACK);
+        fl_font(FL_HELVETICA_BOLD, 14);
+        fl_draw(title.c_str(), x() + w() / 2 - 50, y() + 20);
+
+        fl_color(FL_BLACK);
+        fl_line(x() + 70, y() + h() - 70, x() + w() - 40, y() + h() - 70);
+        fl_line(x() + 70, y() + h() - 70, x() + 70, y() + 40);
+
+        fl_font(FL_HELVETICA, 12);
+        fl_draw(xLabel.c_str(), x() + w() / 2, y() + h() - 30);
+        fl_draw(yLabel.c_str(), x() + 20, y() + h() / 2);
+
+        drawTicks();
+
+        fl_color(FL_BLACK);
+        fl_rect(x() + w() - 140, y() + 10, 120, 50);
+        fl_font(FL_HELVETICA, 10);
+        fl_draw(key.c_str(), x() + w() - 130, y() + 35);
+
+        if (data.empty()) return;
+        for (size_t i = 0; i < data.size() - 1; ++i) {
+            double x1 = mapValue(data[i].first, 0, xMax, x() + 70, x() + w() - 40);
+            double y1 = mapValue(data[i].second, 0, yMax, y() + h() - 70, y() + 40);
+            double x2 = mapValue(data[i + 1].first, 0, xMax, x() + 70, x() + w() - 40);
+            double y2 = mapValue(data[i + 1].second, 0, yMax, y() + h() - 70, y() + 40);
+
+            fl_color(FL_BLUE);
+            fl_line(x1, y1, x2, y2);
+        }
+    }
+
+private:
+    double mapValue(double value, double minVal, double maxVal, double outMin, double outMax) {
+        return outMin + ((value - minVal) / (maxVal - minVal)) * (outMax - outMin);
+    }
+
+    void drawTicks() {
+        fl_font(FL_HELVETICA, 10);
+        fl_color(FL_BLACK);
+
+        for (int i = 0; i <= 5; ++i) {
+            double xTickVal = xMax * i / 5;
+            double xTickPos = mapValue(xTickVal, 0, xMax, x() + 70, x() + w() - 40);
+            fl_draw(to_string(xTickVal).c_str(), xTickPos - 10, y() + h() - 55);
+            fl_line(xTickPos, y() + h() - 70, xTickPos, y() + h() - 65);
+
+            double yTickVal = yMax * i / 5;
+            double yTickPos = mapValue(yTickVal, 0, yMax, y() + h() - 70, y() + 40);
+            fl_draw(to_string(yTickVal).c_str(), x() + 45, yTickPos + 5);
+            fl_line(x() + 70, yTickPos, x() + 75, yTickPos);
+        }
+    }
+};
+
+// Global Variables
+atomic<bool> running(false);
+Fl_Input *inputPopulationSize, *inputMutationRate, *inputCrossoverRate, *inputThreads;
+Fl_Choice *algorithmChoice;
+Fl_Text_Display *outputDisplay;
+Fl_Text_Buffer *outputBuffer;
+LineChart *speedupChart, *efficiencyChart;
+
+// Function Prototypes
+void mpiSimulateAlgorithm();
+void geneticAlgorithm(int rank, int size);
+
+// Main Function
+int main(int argc, char **argv) {
+    MPI_Init(&argc, &argv);
+
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    // Only rank 0 should create the window
+    if (rank == 0) {
+        Fl_Window *window = new Fl_Window(950, 700, "MPI Genetic Algorithm Simulator");
+
+        inputPopulationSize = new Fl_Input(150, 30, 150, 25, "Population Size:");
+        inputPopulationSize->value("100");
+
+        inputMutationRate = new Fl_Input(150, 70, 150, 25, "Mutation Rate:");
+        inputMutationRate->value("0.01");
+
+        inputCrossoverRate = new Fl_Input(150, 110, 150, 25, "Crossover Rate:");
+        inputCrossoverRate->value("0.7");
+
+        inputThreads = new Fl_Input(150, 150, 150, 25, "Number of Threads:");
+        inputThreads->value("4");
+
+        algorithmChoice = new Fl_Choice(150, 190, 150, 25, "Algorithm:");
+        algorithmChoice->add("Standard GA|Stationary GA|Elite GA|Island Model GA");
+        algorithmChoice->value(0);
+
+        Fl_Button *startButton = new Fl_Button(50, 230, 100, 30, "Start");
+        startButton->callback([](Fl_Widget *, void *) { thread(mpiSimulateAlgorithm).detach(); });
+
+        Fl_Button *stopButton = new Fl_Button(200, 230, 100, 30, "Stop");
+        stopButton->callback([](Fl_Widget *, void *) { running = false; });
+
+        outputDisplay = new Fl_Text_Display(50, 280, 400, 300);
+        outputBuffer = new Fl_Text_Buffer();
+        outputDisplay->buffer(outputBuffer);
+
+        speedupChart = new LineChart(500, 50, 400, 250);
+        speedupChart->setLabels("Threads", "Speedup (x)", "Speedup vs. Threads", "Speedup");
+
+        efficiencyChart = new LineChart(500, 350, 400, 250);
+        efficiencyChart->setLabels("Threads", "Efficiency (%)", "Efficiency vs. Threads", "Efficiency");
+
+        window->end();
+        window->show(argc, argv);
+    }
+
+    // Simulation starts, and MPI operations occur here
+    mpiSimulateAlgorithm();
+
+    // Once the simulation is complete, finalize MPI at the very end
+    if (rank == 0) {
+        Fl::run(); // Only rank 0 runs the event loop
+    }
+
+    // Call MPI_Finalize to finalize MPI operations, this must be the last MPI call
+    MPI_Finalize();
+
+    return 0;
+}
+
+void mpiSimulateAlgorithm() {
+    running = true;
+
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    while (running) {
+        geneticAlgorithm(rank, size);
+        if (rank == 0) outputBuffer->text("Simulation completed.\n");
+        running = false;
+    }
+}
+
+void geneticAlgorithm(int rank, int size) {
+    const int populationSize = stoi(inputPopulationSize->value());
+    const double mutationRate = stod(inputMutationRate->value());
+    const double crossoverRate = stod(inputCrossoverRate->value());
+
+    vector<double> population(populationSize, 0.0); // Placeholder for population
+    vector<double> fitness(populationSize, 0.0); // Placeholder for fitness scores
+
+    // Here, you would normally apply genetic algorithm operations like selection, crossover, mutation, etc.
+    for (int i = 0; i < population.size(); i++) {
+        fitness[i] = (rand() % 100) * 0.01; // Dummy fitness values
+    }
+
+    // Ensure populationSize is divisible by size for MPI_Gather
+    int localSize = populationSize / size;
+    vector<double> globalFitness(populationSize);
+    MPI_Gather(fitness.data(), localSize, MPI_DOUBLE,
+               globalFitness.data(), localSize, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        // Process results and update GUI
+        double totalFitness = 0.0;
+        for (int i = 0; i < globalFitness.size(); i++) {
+            totalFitness += globalFitness[i];
+        }
+        ostringstream oss;
+        oss << "Total Fitness: " << totalFitness << "\n";
+        outputBuffer->text(oss.str().c_str());
+
+        // Update charts with dummy data (replace with actual data)
+        for (int i = 1; i <= size; ++i) {
+            speedupChart->addDataPoint(i, 1.0 / i); // Dummy speedup data
+            efficiencyChart->addDataPoint(i, 100.0 / i); // Dummy efficiency data
+        }
+    }
+}
