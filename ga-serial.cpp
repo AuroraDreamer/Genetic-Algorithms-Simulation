@@ -217,22 +217,22 @@ void runSelectedAlgorithm(int algorithm, long long populationSize, double mutati
 
 void runStandardGA(long long populationSize, double mutationRate, double crossoverRate) {
     // Standard Genetic Algorithm logic (serial implementation)
-    // Placeholder for GA operations such as selection, crossover, and mutation.
+    
 }
 
 void runStationaryGA(long long populationSize, double mutationRate, double crossoverRate) {
     // Stationary Genetic Algorithm logic (serial implementation)
-    // Placeholder for incremental population updates.
+    
 }
 
 void runEliteGA(long long populationSize, double mutationRate, double crossoverRate) {
     // Elite Genetic Algorithm logic (serial implementation)
-    // Placeholder for elitism and retaining the best individuals.
+    
 }
 
 void runIslandModelGA(long long populationSize, double mutationRate, double crossoverRate) {
     // Island Model Genetic Algorithm logic (serial implementation)
-    // Placeholder for multiple sub-populations and migration.
+    
 }
 
 // Main Function
