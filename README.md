@@ -13,16 +13,15 @@ advantages of parallel computing in order to increase efficiency. The project is
 developed in C++ using the FLTK GUI toolkit as the primary language.
 Code Repository and Selection
 Repository URL:
-● TSP Genetic Algorithm with OpenMP
 ● MPI Distributed Genetic Algorithm
 
 Code Description: The selected repositories for this project implement genetic algorithms
-which are optimized for solving the Travelling Salesman Problem (TSP) using parallel
+which are optimized using parallel
 computing techniques (OpenMP and MPI).
 
 Code Analysis: Upon examination of the code's complexity analysis reveals that it is
 considered owing to the duration it takes to run on extensive datasets. Usually about O(n⋅g),
-for a single thread operation. It encompasses parallelization commands like, over 50 #pragmas
+for a single thread operation. It encompasses parallelization commands like, over #pragmas
 or MPI calls.
 
 
