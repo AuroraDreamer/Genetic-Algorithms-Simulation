@@ -15,7 +15,7 @@ pipeline {
 				script {
 					failedStage = "Checkout"  //Set stage name
                 }
-				git branch: 'main', credentialsId: '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', url: 'https://github.com/aathawerani/Utilitites.git'
+				git branch: 'main', credentialsId: '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', url: 'https://github.com//AuroraDreamer//Genetic-Algorithms-Simulation.git'
 			}
 		}
 		stage('Dependency Check') {
