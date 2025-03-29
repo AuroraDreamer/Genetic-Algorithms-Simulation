@@ -152,9 +152,10 @@ pipeline {
 		        }
 		        withSonarQubeEnv('SonarQube') {
 		            dir('D:\\Jenkins\\workspace\\Genetic-Algorithms-Simulation') {
-		                bat '"C:\\Users\\Ali's Laptop\\.dotnet\\tools\\dotnet-sonarscanner" begin /k:"DevSecOps-Assignment" /d:sonar.host.url="http://localhost:9000" /d:sonar.login=%SONARQUBE_TOKEN%'
-		                bat 'dotnet build --configuration Release'
-		                bat '"C:\\Users\\Ali's Laptop\\.dotnet\\tools\\dotnet-sonarscanner" end /d:sonar.login=%SONARQUBE_TOKEN%'
+		                bat "\"C:\\Users\\Ali's Laptop\\.dotnet\\tools\\dotnet-sonarscanner\" begin /k:\"DevSecOps-Assignment\" /d:sonar.host.url=\"http://localhost:9000\" /d:sonar.login=%SONARQUBE_TOKEN%"
+				bat "dotnet build --configuration Release"
+				bat "\"C:\\Users\\Ali's Laptop\\.dotnet\\tools\\dotnet-sonarscanner\" end /d:sonar.login=%SONARQUBE_TOKEN%"
+
 		            }
 		        }
 		    }
