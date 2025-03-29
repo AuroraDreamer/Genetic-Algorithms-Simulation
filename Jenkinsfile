@@ -5,8 +5,8 @@ pipeline {
         SONARQUBE_URL = 'http://localhost:9000'
         SONARQUBE_TOKEN = credentials('SonarQube-Credentials') // Replace with your credential ID
         GIT_CREDENTIALS_ID = '82094a4a-8870-426c-a485-8b2c449a6111'
-        GITHUB_REPO = 'AuroraDreamer/Utilitites'
-        GITHUB_TOKEN = credentials('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')
+        GITHUB_REPO = 'AuroraDreamer/Genetic-Algorithms-Simulation'
+        GITHUB_TOKEN = credentials('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')
         EMAIL_RECIPIENT = 'aliasghar.bsinfo@gmail.com'
     }
 	stages{
