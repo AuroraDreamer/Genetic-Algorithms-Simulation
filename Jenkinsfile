@@ -139,7 +139,7 @@ pipeline {
 				script {
 					failedStage = "Build"  //Set stage name
                 }
-				dir('D:\Jenkins\workspace\Genetic-Algorithms-Simulation'){
+				dir('D:\\Jenkins\\workspace\\Genetic-Algorithms-Simulation'){
 					bat 'dotnet restore'
 					bat 'dotnet build --configuration Release'
 				}
@@ -151,7 +151,7 @@ pipeline {
 		            failedStage = "SonarQube"
 		        }
 		        withSonarQubeEnv('SonarQube') {
-		            dir('D:\Jenkins\workspace\Genetic-Algorithms-Simulation') {
+		            dir('D:\\Jenkins\\workspace\\Genetic-Algorithms-Simulation') {
 		                bat '"C:\\Users\\Ali's Laptop\\.dotnet\\tools\\dotnet-sonarscanner" begin /k:"DevSecOps-Assignment" /d:sonar.host.url="http://localhost:9000" /d:sonar.login=%SONARQUBE_TOKEN%'
 		                bat 'dotnet build --configuration Release'
 		                bat '"C:\\Users\\Ali's Laptop\\.dotnet\\tools\\dotnet-sonarscanner" end /d:sonar.login=%SONARQUBE_TOKEN%'
@@ -280,7 +280,7 @@ pipeline {
 				script {
 					failedStage = "Unit Tests"  // ✅ Set stage name
                 }
-				dir('D:\Jenkins\workspace\Genetic-Algorithms-Simulation/Genetic-Algorithms-Simulation.Tests') {
+				dir('D:\\Jenkins\\workspace\\Genetic-Algorithms-Simulation\\Genetic-Algorithms-Simulation.Tests') {
 					bat 'dotnet test --logger trx --results-directory TestResults'
 				}
 			}
